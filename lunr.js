@@ -47,8 +47,8 @@ var lunr = function (config) {
 
   idx.pipeline.add(
     lunr.trimmer,
-    lunr.stopWordFilter,
-    lunr.stemmer
+    lunr.stopWordFilter
+    //lunr.stemmer
   )
 
   if (config) config.call(idx, idx)
@@ -180,7 +180,8 @@ lunr.tokenizer = function (obj) {
   if (!arguments.length || obj == null || obj == undefined) return []
   if (Array.isArray(obj)) return obj.map(function (t) { return t.toLowerCase() })
 
-  var str = obj.toString().replace(/^\s+/, '')
+  //var str = obj.toString().replace(/^\s+/, '')
+  var str = obj.toString().replace( /[^a-z ]/gi,' ')
 
   for (var i = str.length - 1; i >= 0; i--) {
     if (/\S/.test(str.charAt(i))) {
