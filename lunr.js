@@ -47,8 +47,8 @@ var lunr = function (config) {
 
   idx.pipeline.add(
     lunr.trimmer,
-    lunr.stopWordFilter
-    //lunr.stemmer
+    lunr.stopWordFilter,
+    lunr.stemmer
   )
 
   if (config) config.call(idx, idx)
@@ -181,7 +181,7 @@ lunr.tokenizer = function (obj) {
   if (Array.isArray(obj)) return obj.map(function (t) { return t.toLowerCase() })
 
   //var str = obj.toString().replace(/^\s+/, '')
-  var str = obj.toString().replace( /[^a-z ]/gi,' ')
+  /*var str = obj.toString().replace( /[^a-z ]/gi,' ')
 
   for (var i = str.length - 1; i >= 0; i--) {
     if (/\S/.test(str.charAt(i))) {
@@ -197,7 +197,17 @@ lunr.tokenizer = function (obj) {
     })
     .map(function (token) {
       return token.toLowerCase()
-    })
+    })*/
+    
+     return obj.toString() 
+    .split(/(\s+|\(|\)|"|[\!\@\#\$\%\^\&\*\+\=\~\[\]\{\}\\\|\;\:\<\>\,\.\?])/) // punc split, preserve "O'Neil" and "O-Neil"
+    // .split(/(?:\s+|\-)/)
+    .filter(function (token) {
+      return token.replace(/[^\w]/g, '').length > 1  // has more than one alpha character
+    })  
+    .map(function (token) {
+      return token.toLowerCase()
+    })   
 }
 /*!
  * lunr.Pipeline
@@ -1064,7 +1074,7 @@ lunr.Index.prototype.idf = function (term) {
  * @memberOf Index
  */
 lunr.Index.prototype.search = function (query) {
-  var queryTokens = this.pipeline.run(lunr.tokenizer(query)),
+  /*var queryTokens = this.pipeline.run(lunr.tokenizer(query)),
       queryVector = new lunr.Vector,
       documentSets = [],
       fieldBoosts = this._fields.reduce(function (memo, f) { return memo + f.boost }, 0)
@@ -1118,7 +1128,45 @@ lunr.Index.prototype.search = function (query) {
     }, this)
     .sort(function (a, b) {
       return b.score - a.score
-    })
+    })*/
+    
+     this.length = 0
+	  this.L1 = 32*32
+	  this.L2 = 32
+	  var results = [];
+	  var k = 0;
+	
+	  for (var docstore in idx.documentStore.store) 
+	  { 	
+		  forwards = new Trie();
+		  var treeoutput='';
+		  var words='';
+		  words=idx.documentStore.store[docstore].elements;
+		 	 
+		  for ( var j = 0; j < words.length; j++ ) {
+		      // To save space, our encoding handles only the letters a-z. Ignore
+		      // words that contain other characters.
+		      var word = words[j];
+		      forwards.insert( word );
+		  }
+		
+		  // Encode the trie.
+		 var trieData = forwards.encode();
+		 var nodeCount = forwards.getNodeCount() * 2 +1;
+		 var directory= RankDirectory.Create(trieData, (forwards.getNodeCount() * 2 +1), this.L1, this.L2);
+		 treeoutput= '{\n    "nodeCount": ' + forwards.getNodeCount() + ",\n";
+		 treeoutput += '    "directory": "' + directory.getData() + '",\n';
+		 treeoutput += '    "trie": "' + trieData + '"\n';
+		 treeoutput += "}\n"; 
+	
+		 var result = idx.tokenStore.expand(query,treeoutput);  
+	
+		 if( result === true ){ 
+			 results[k] = docstore;
+			 k++;
+		 }
+	}  
+	return results;
 }
 
 /**
@@ -1823,7 +1871,7 @@ lunr.TokenStore.prototype.remove = function (token, ref) {
  * @memberOf TokenStore
  */
 lunr.TokenStore.prototype.expand = function (token, memo) {
-  var root = this.getNode(token),
+  /*var root = this.getNode(token),
       docs = root.docs || {},
       memo = memo || []
 
@@ -1836,7 +1884,23 @@ lunr.TokenStore.prototype.expand = function (token, memo) {
       memo.concat(this.expand(token + key, memo))
     }, this)
 
-  return memo
+  return memo*/
+  
+  var status = false;
+    try 
+    {        
+    	var json = eval( '(' + memo + ")" );
+        var ftrie = new FrozenTrie( json.trie, json.directory, json.nodeCount);
+       
+        if ( ftrie.lookup( token ) ) {
+            status = true;
+        } else { 
+            status = false;
+        } 
+    }catch ( e ) {
+          	status = false;
+    }
+    return status;  
 }
 
 /**
