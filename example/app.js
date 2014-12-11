@@ -68,13 +68,26 @@ require([
   }
 
   $('input').bind('keyup', debounce(function () {
-    if ($(this).val() < 2) return
+  /*  if ($(this).val() < 2) return
     var query = $(this).val()
     var results = idx.search(query).map(function (result) {
       return questions.filter(function (q) { return q.id === parseInt(result.ref, 10) })[0]
     })
 
-    renderQuestionList(results)
+    renderQuestionList(results)*/
+    
+    var query = $('input#inputSearch').val().replace(/^\s+|\s+$/g, '') + "*";
+	  var strLength = query.length;
+	  if(query.charAt(strLength - 1)  == '*'){
+			query = query.substring(0,query.length-1);
+		}
+	 query=query.toLowerCase();
+
+	var results = idx.search(query).map(function (result) { 
+	   return questions.filter(function (q) { return q.id === parseInt(result, 10) })[0]
+		  })
+	 
+	 renderQuestionList(results)
   }))
 
   $("#question-list-container").delegate('li', 'click', function () {
